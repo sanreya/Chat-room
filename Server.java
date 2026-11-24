@@ -4,14 +4,16 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Server implements Runnable {
 
 	
-	private ArrayList<ConnectionHandler> connections;
+	private List<ConnectionHandler> connections;
 	private ServerSocket server ;
 	private boolean done;
 	private ExecutorService pool;
@@ -24,7 +26,7 @@ public class Server implements Runnable {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		connections = new ArrayList<ConnectionHandler>();
+		connections = new CopyOnWriteArrayList<ConnectionHandler>();
 		done = false;
 	}
 	
@@ -114,15 +116,21 @@ public class Server implements Runnable {
 					}
 					else if(message.startsWith("/quit")) {
 						broadcast(nickname + " left the chat");
-						shutdown();
+						return;
 					}
 					else {
 						broadcast(nickname + ": " + message);
 					}
 				}
 			}
+			catch(SocketException e) {
+				System.out.println((nickname == null ? "A client" : nickname) + " disconnected.");
+			}
 			catch(IOException e) {
-				e.printStackTrace();
+				System.err.println("Connection error for " + nickname + ": " + e.getMessage());
+			}
+			finally {
+				connections.remove(this);
 				shutdown();
 			}
 		}
@@ -133,8 +141,6 @@ public class Server implements Runnable {
 		
 		public void shutdown() {
 			try {
-				in.close();
-				out.close();
 				if(!client.isClosed()) {
 					client.close();
 				}
